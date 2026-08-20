@@ -280,7 +280,25 @@ input[type=range]{width:100%;accent-color:var(--hot);}
 </style>
 </head>
 <body>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
 
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyB0wCIDtnhSzN___r2rcuLA4dzkSdgMtEw",
+    authDomain: "planning-with-ai-3406e.firebaseapp.com",
+    projectId: "planning-with-ai-3406e",
+    storageBucket: "planning-with-ai-3406e.firebasestorage.app",
+    messagingSenderId: "344017044378",
+    appId: "1:344017044378:web:eb063bf5c3d9b2eb33b023"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+</script>
 <div class="wrap" id="app">
   <div class="topbar">
     <div class="brand">
