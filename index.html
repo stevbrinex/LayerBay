@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAYERBAY — print &amp; sell</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  --bg:#0f131a;
+  --bg-2:#141a23;
+  --panel:#1a212c;
+  --panel-2:#212a37;
+  --line:#2b3648;
+  --line-soft:#212a37;
+  --text:#e8edf4;
+  --text-dim:#8b96a9;
+  --text-faint:#5c6579;
+  --hot:#ff6b35;
+  --hot-dim:#3a2418;
+  --cool:#4fd1e5;
+  --cool-dim:#173036;
+  --hazard:#ffd23f;
+  --good:#5bd68b;
+  --bad:#ff5d6c;
+  --radius:12px;
+  --radius-sm:8px;
+  --font-display:'Space Grotesk',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255,107,53,0.08), transparent),
+    radial-gradient(ellipse 700px 500px at 100% 10%, rgba(79,209,229,0.07), transparent),
+    var(--bg);
+  color:var(--text);
+  font-family:var(--font-display);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--hot);color:#12100c;}
+:focus-visible{outline:2px solid var(--cool);outline-offset:2px;border-radius:4px;}
+button{font-family:var(--font-display);cursor:pointer;}
+input,select{font-family:var(--font-mono);}
+
+.wrap{max-width:1080px;margin:0 auto;padding:20px 18px 80px;}
+
+/* ---------- HEADER ---------- */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding-bottom:18px;margin-bottom:6px;border-bottom:1px solid var(--line);
+  gap:12px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-mark{
+  width:34px;height:34px;border-radius:7px;
+  background:linear-gradient(155deg,var(--hot),#c9491f);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 1px rgba(255,255,255,.06) inset, 0 4px 14px -4px rgba(255,107,53,.55);
+  flex-shrink:0;
+}
+.brand-mark svg{width:19px;height:19px;}
+.brand-name{font-weight:700;font-size:19px;letter-spacing:.2px;}
+.brand-name .accent{color:var(--hot);}
+.brand-sub{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);letter-spacing:1.5px;text-transform:uppercase;margin-top:1px;}
+
+.stat-strip{display:flex;gap:8px;flex-wrap:wrap;}
+.stat-pill{
+  background:var(--panel);border:1px solid var(--line);border-radius:20px;
+  padding:6px 12px 6px 10px;display:flex;align-items:center;gap:7px;
+  font-family:var(--font-mono);font-size:12.5px;
+}
+.stat-pill .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.stat-pill b{font-weight:700;color:var(--text);}
+.dot-money{background:var(--hazard);box-shadow:0 0 6px var(--hazard);}
+.dot-fil{background:var(--cool);box-shadow:0 0 6px var(--cool);}
+
+/* ---------- NAV ---------- */
+.tabs{
+  display:flex;gap:6px;margin:22px 0 22px;overflow-x:auto;
+  border:1px solid var(--line);background:var(--bg-2);border-radius:var(--radius);
+  padding:5px;
+}
+.tab-btn{
+  flex:1;min-width:96px;background:transparent;border:none;color:var(--text-dim);
+  font-size:12.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;
+  padding:10px 8px;border-radius:8px;transition:.15s;position:relative;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.tab-btn svg{width:16px;height:16px;opacity:.75;}
+.tab-btn:hover{color:var(--text);background:var(--panel-2);}
+.tab-btn.active{background:var(--panel);color:var(--text);box-shadow:0 0 0 1px var(--line) inset;}
+.tab-btn.active svg{opacity:1;}
+.tab-btn .badge-count{
+  position:absolute;top:4px;right:10px;background:var(--hot);color:#1a0d05;
+  font-size:9.5px;font-weight:700;border-radius:8px;padding:1px 5px;font-family:var(--font-mono);
+}
+
+/* ---------- PANELS / CARDS ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;}
+.panel + .panel{margin-top:16px;}
+.section-title{
+  font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--text-faint);
+  font-family:var(--font-mono);margin:0 0 14px;display:flex;align-items:center;gap:8px;
+}
+.section-title::after{content:'';flex:1;height:1px;background:var(--line);}
+h2.big{font-size:22px;margin:0 0 4px;font-weight:700;}
+p.lede{color:var(--text-dim);font-size:13.5px;margin:0 0 18px;line-height:1.5;}
+
+/* ---------- PRINT BAY / BUILD PLATE ---------- */
+.print-layout{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+@media (max-width:760px){.print-layout{grid-template-columns:1fr;}}
+
+.bed-stage{
+  background:
+    repeating-linear-gradient(115deg, rgba(79,209,229,0.05) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(25deg, rgba(79,209,229,0.05) 0 1px, transparent 1px 26px),
+    var(--bg-2);
+  border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:300px;position:relative;overflow:hidden;
+}
+.gantry-rail{position:absolute;top:14px;left:10px;right:10px;height:2px;background:linear-gradient(90deg,transparent,var(--line-soft) 15%,var(--line-soft) 85%,transparent);}
+.gantry-head{position:absolute;top:8px;width:14px;height:14px;border-radius:3px;background:var(--hot);box-shadow:0 0 10px var(--hot);transition:left .4s linear;}
+.print-icon-holder{width:190px;height:190px;position:relative;}
+.print-icon-holder svg{width:100%;height:100%;display:block;filter:drop-shadow(0 12px 16px rgba(0,0,0,.45));}
+.layer-clip{transition:clip-path .12s linear;}
+.idle-msg{font-family:var(--font-mono);color:var(--text-faint);font-size:12px;text-align:center;}
+.progress-wrap{width:100%;margin-top:14px;}
+.progress-track{
+  height:9px;border-radius:5px;background:var(--bg);border:1px solid var(--line);overflow:hidden;position:relative;
+}
+.progress-fill{
+  height:100%;border-radius:5px;
+  background:repeating-linear-gradient(45deg,var(--hot) 0 10px,#e0551f 10px 20px);
+  background-size:28px 28px;
+  animation:barmove 1s linear infinite;
+  transition:width .12s linear;
+}
+@keyframes barmove{from{background-position:0 0;}to{background-position:28px 0;}}
+.progress-meta{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-top:6px;}
+
+.builder-form label{display:block;font-family:var(--font-mono);font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);margin:14px 0 7px;}
+.builder-form label:first-child{margin-top:0;}
+.shape-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+@media (max-width:420px){.shape-grid{grid-template-columns:repeat(3,1fr);}}
+.shape-opt{
+  background:var(--bg-2);border:1px solid var(--line);border-radius:9px;padding:8px 4px 7px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-dim);
+  font-family:var(--font-mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;
+  position:relative;transition:.15s;
+}
+.shape-opt svg{width:30px;height:30px;}
+.shape-opt.selectable:hover{border-color:var(--cool);color:var(--text);}
+.shape-opt.selected{border-color:var(--hot);background:var(--hot-dim);color:var(--text);box-shadow:0 0 0 1px var(--hot) inset;}
+.shape-opt.locked{opacity:.4;cursor:not-allowed;}
+.shape-opt.locked::after{content:'🔒';position:absolute;top:4px;right:5px;font-size:9px;}
+.shape-opt button{background:none;border:none;color:inherit;font:inherit;width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0;}
+
+.color-row{display:flex;align-items:center;gap:10px;}
+input[type=color]{width:42px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--bg-2);padding:2px;}
+.swatch-name{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);}
+
+input[type=range]{width:100%;accent-color:var(--hot);}
+.range-row{display:flex;align-items:center;gap:10px;}
+.range-val{font-family:var(--font-mono);font-size:12px;width:44px;text-align:right;color:var(--text);}
+
+.cost-line{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:12px;color:var(--text-dim);padding:4px 0;}
+.cost-line b{color:var(--text);}
+
+/* ---------- BUTTONS ---------- */
+.btn{
+  border:1px solid var(--line);background:var(--panel-2);color:var(--text);
+  padding:11px 18px;border-radius:9px;font-weight:600;font-size:13.5px;
+  transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+}
+.btn:hover:not(:disabled){border-color:var(--cool);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-primary{background:linear-gradient(155deg,var(--hot),#c9491f);border-color:transparent;color:#180b04;}
+.btn-primary:hover:not(:disabled){filter:brightness(1.08);}
+.btn-full{width:100%;margin-top:16px;}
+.btn-ghost{background:transparent;}
+.btn-sm{padding:7px 12px;font-size:12px;border-radius:7px;}
+.btn-danger{color:var(--bad);}
+.btn-danger:hover{border-color:var(--bad);}
+.btn-cool{background:linear-gradient(155deg,var(--cool),#2a9aab);border-color:transparent;color:#06181a;}
+
+/* ---------- GRIDS OF ITEMS ---------- */
+.item-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px;}
+.item-card{
+  background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:12px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.item-thumb{width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;}
+.item-thumb svg{width:82%;height:82%;filter:drop-shadow(0 6px 8px rgba(0,0,0,.4));}
+.item-name{font-weight:600;font-size:13px;}
+.item-meta{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.4px;}
+.item-actions{display:flex;gap:6px;margin-top:auto;}
+.item-actions .btn{flex:1;}
+.list-form{display:flex;gap:6px;margin-top:4px;}
+.list-form input{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;color:var(--text);padding:8px 8px;font-size:12.5px;}
+.empty-state{
+  text-align:center;padding:40px 16px;color:var(--text-faint);font-family:var(--font-mono);font-size:12.5px;
+  border:1px dashed var(--line);border-radius:var(--radius);
+}
+
+/* ---------- MARKETPLACE ---------- */
+.market-card{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;}
+.shop-tag{font-family:var(--font-mono);font-size:10px;color:var(--cool);text-transform:uppercase;letter-spacing:.5px;}
+.price-tag{font-family:var(--font-mono);font-weight:700;color:var(--hazard);font-size:15px;}
+.feed{display:flex;flex-direction:column;gap:7px;max-height:180px;overflow-y:auto;}
+.feed-item{font-family:var(--font-mono);font-size:11.5px;color:var(--text-dim);padding:7px 10px;background:var(--bg-2);border-radius:7px;border:1px solid var(--line-soft);}
+.feed-item .t{color:var(--text-faint);font-size:9.5px;display:block;margin-top:2px;}
+
+/* ---------- SHOP TAB ---------- */
+.shopname-row{display:flex;gap:8px;align-items:center;}
+.shopname-row input{flex:1;background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;font-weight:600;font-family:var(--font-display);}
+.earn-box{
+  display:flex;align-items:center;justify-content:space-between;background:var(--cool-dim);
+  border:1px solid var(--cool-dim);border-radius:10px;padding:14px 16px;margin-top:14px;
+}
+.earn-box .amt{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--cool);}
+.earn-box .lbl{font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);}
+
+/* ---------- STATS ---------- */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;}
+.stat-box{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:14px;}
+.stat-box .n{font-family:var(--font-mono);font-size:22px;font-weight:700;}
+.stat-box .l{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-faint);margin-top:3px;}
+.unlock-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-soft);}
+.unlock-row:last-child{border-bottom:none;}
+.unlock-row svg{width:26px;height:26px;flex-shrink:0;}
+.unlock-row .u-name{font-weight:600;font-size:13px;flex:1;}
+.unlock-row .u-status{font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;}
+.u-unlocked{color:var(--good);}
+.u-locked{color:var(--text-faint);}
+
+/* ---------- MISC ---------- */
+.hazard-divider{height:5px;border-radius:3px;margin:16px 0;background:repeating-linear-gradient(-45deg,var(--hazard) 0 8px,#171a1f 8px 16px);opacity:.5;}
+.notice{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);line-height:1.6;background:var(--bg-2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px;}
+.toast-stack{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:999;max-width:280px;}
+.toast{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--hot);border-radius:8px;padding:10px 14px;font-size:12.5px;box-shadow:0 8px 24px -6px rgba(0,0,0,.5);animation:toastin .2s ease;}
+.toast.good{border-left-color:var(--good);}
+.toast.bad{border-left-color:var(--bad);}
+@keyframes toastin{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.hidden{display:none !important;}
+.spin{animation:spin 2.5s linear infinite;transform-origin:center;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ---------- MULTIPLAYER ADDITIONS ---------- */
+.role-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:20px;font-family:var(--font-mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:700;}
+.role-printer{background:var(--hot-dim);color:var(--hot);border:1px solid var(--hot);}
+.role-buyer{background:var(--cool-dim);color:var(--cool);border:1px solid var(--cool);}
+.conn-row{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);flex-shrink:0;}
+.conn-dot.online{background:var(--good);box-shadow:0 0 6px var(--good);}
+.lobby-card{max-width:460px;margin:36px auto;}
+.code-display{font-family:var(--font-mono);font-size:38px;font-weight:700;letter-spacing:8px;text-align:center;color:var(--hazard);background:var(--bg-2);border:1px dashed var(--line);border-radius:10px;padding:20px 10px;margin:16px 0;}
+.divider-or{display:flex;align-items:center;gap:12px;color:var(--text-faint);font-family:var(--font-mono);font-size:11px;margin:22px 0;}
+.divider-or::before,.divider-or::after{content:'';flex:1;height:1px;background:var(--line);}
+.limitation-banner{background:var(--bg-2);border:1px solid var(--hazard);border-left:3px solid var(--hazard);border-radius:8px;padding:12px 14px;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);line-height:1.6;margin-bottom:20px;}
+.limitation-banner b{color:var(--hazard);}
+.job-card{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden;}
+.job-card h4{margin:0;font-size:14px;}
+.job-desc{font-size:12px;color:var(--text-dim);margin:0;line-height:1.4;}
+.job-pay{font-family:var(--font-mono);color:var(--hazard);font-size:13px;}
+.tap-bonus-btn{position:absolute;top:10px;right:10px;background:var(--hazard);color:#241a02;border:none;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;font-family:var(--font-mono);animation:pulse .6s ease infinite alternate;z-index:2;}
+@keyframes pulse{from{transform:scale(1);}to{transform:scale(1.1);}}
+.upgrade-card{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.upgrade-card .u-info h4{margin:0 0 3px;font-size:13.5px;}
+.upgrade-card .u-info span{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);}
+.waiting-spin{width:44px;height:44px;border:3px solid var(--line);border-top-color:var(--hot);border-radius:50%;margin:18px auto;animation:spin 1s linear infinite;}
+.err-text{color:var(--bad);font-family:var(--font-mono);font-size:12px;margin-top:8px;min-height:16px;}
+.field-label{display:block;font-family:var(--font-mono);font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);margin:14px 0 7px;}
+.text-input{width:100%;background:var(--bg-2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;color:var(--text);font-size:14px;font-family:var(--font-display);font-weight:600;}
+.text-input.mono{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:3px;text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 17V7l8-4 8 4v10l-8 4-8-4Z" stroke="#180b04" stroke-width="1.6" stroke-linejoin="round"/><path d="M4 7l8 4 8-4M12 11v10" stroke="#180b04" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">LAYER<span class="accent">BAY</span></div>
+        <div class="brand-sub">two-player print shop</div>
+      </div>
+    </div>
+    <div id="headerRight"></div>
+  </div>
+
+  <div id="screenRoot"></div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* ============================================================
+   LAYERBAY — two-human 3D print shop game
+   ------------------------------------------------------------
+   One match = two human players = one PRINTER + one BUYER,
+   roles assigned at random when the match starts.
+
+   PROTOTYPE LIMITATION (read this before trusting the economy):
+   This build has no real backend. "Shared" state below lives in
+   window.storage, a simple client-side key/value store — not an
+   authenticated server. Every "transaction" is really a client
+   doing read -> check -> write against that store. That means:
+     - there is no real identity/auth, just a random id saved in
+       this browser
+     - purchases are NOT atomic — two near-simultaneous actions
+       could theoretically race
+     - a malicious client could in principle write bad data
+   It's structured so a real backend (sessions, a DB, and
+   server-validated purchases) could be swapped in later: all
+   game logic reads/writes go through the sGet/sSet/sDel helpers
+   below, which is where a real API client would plug in instead.
+   Don't use this for anything with real money on the line.
+   ============================================================ */
+
+const SHAPES = [
+  {id:'cube',     label:'Storage Cube', grams:15, time:8,  price:6,  unlock:0,   desc:'A sturdy little box. Everybody needs one.'},
+  {id:'cylinder', label:'Pen Cup',      grams:12, time:7,  price:5,  unlock:0,   desc:'Holds pens, holds dreams.'},
+  {id:'cone',     label:'Mini Cone',    grams:10, time:6,  price:4,  unlock:0,   desc:'A small hazard, purely decorative.'},
+  {id:'pyramid',  label:'Desk Pyramid', grams:18, time:10, price:8,  unlock:20,  desc:'For the aspiring desk pharaoh.'},
+  {id:'star',     label:'Star Charm',   grams:8,  time:5,  price:5,  unlock:50,  desc:'A flat little keepsake.'},
+  {id:'sphere',   label:'Orb',          grams:20, time:12, price:9,  unlock:100, desc:'Perfectly round. Mostly.'},
+  {id:'vase',     label:'Bud Vase',     grams:25, time:14, price:12, unlock:200, desc:'One flower. Maybe two.'},
+  {id:'robot',    label:'Tiny Bot',     grams:35, time:18, price:20, unlock:400, desc:'Beep boop. Sold separately: friends.'},
+];
+const shapeById = id => SHAPES.find(s=>s.id===id);
+
+const JOBS = [
+  {id:'sort',    label:'Sort Filament Spools', pay:4,  time:8,  desc:'Organize spools by colour before the next shift.'},
+  {id:'deliver', label:'Deliver a Package',    pay:8,  time:14, desc:'Run a box across town before the shop closes.'},
+  {id:'qc',      label:'Quality-Check a Batch',pay:14, time:22, desc:'Inspect a batch of prints for defects.'},
+];
+const jobById = id => JOBS.find(j=>j.id===id);
+
+const UPGRADES = [
+  {id:'speed1', label:'Faster Gantry I',   cost:40,  kind:'speed', desc:'−15% print time'},
+  {id:'speed2', label:'Faster Gantry II',  cost:120, kind:'speed', desc:'−15% print time, stacks'},
+  {id:'eff1',   label:'Efficient Nozzle',  cost:80,  kind:'eff',   desc:'−10% filament per print'},
+];
+
+const MAX_PRICE = 1000000;
+
+const ICON = {
+  print: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 17V7l8-4 8 4v10l-8 4-8-4Z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg>`,
+  grid: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>`,
+  shop: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9l1-5h16l1 5M4 9v10h16V9M4 9h16M9 21v-6h6v6"/></svg>`,
+  market: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="20" r="1.2"/><circle cx="17" cy="20" r="1.2"/><path d="M2 3h3l2.4 12.2a2 2 0 0 0 2 1.8h7.6a2 2 0 0 0 2-1.6L21 7H6"/></svg>`,
+  stats: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>`,
+  upgrade: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 16V8M8 12l4-4 4 4"/></svg>`,
+  job: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg>`,
+};
+
+/* ---------------- module state ---------------- */
+let clientId, playerName = '';
+let matchCode = null, role = null, matchDoc = null;
+let printerState = null, buyerState = null, listings = [], feed = [];
+let printTicker = null, jobTicker = null, pollTimer = null, heartbeatTimer = null, waitTimer = null;
+let currentTab = null;
+let jobBonusLocal = 0, bonusTimeouts = [];
+
+/* ---------------- storage helpers ----------------
+   Every read/write to "shared" game state funnels through these
+   four functions. A real backend integration would replace their
+   insides with authenticated API calls without touching callers. */
+async function sGet(key, shared){
+  try{ const r = await window.storage.get(key, !!shared); return r ? JSON.parse(r.value) : null; }
+  catch(e){ return null; }
+}
+async function sSet(key, val, shared){
+  try{ await window.storage.set(key, JSON.stringify(val), !!shared); return true; }
+  catch(e){ console.error('storage set failed', key, e); return false; }
+}
+async function sDel(key, shared){
+  try{ await window.storage.delete(key, !!shared); return true; }
+  catch(e){ return false; }
+}
+function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : 'id-'+Math.random().toString(36).slice(2)+Date.now()); }
+function genCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for(let i=0;i<4;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+function validatePrice(raw){
+  const n = Number(raw);
+  if(!isFinite(n) || isNaN(n)) return null;
+  if(n <= 0) return null;
+  if(n > MAX_PRICE) return null;
+  return Math.round(n*100)/100;
+}
+
+/* ---------------- key builders ---------------- */
+const matchKey = c => `match:${c}`;
+const pKey = c => `mstate:${c}:printer`;
+const bKey = c => `mstate:${c}:buyer`;
+const lKey = c => `mstate:${c}:listings`;
+const fKey = c => `mstate:${c}:feed`;
+
+/* ---------------- default states ---------------- */
+function defaultPrinterState(){
+  return {money:30, filament:300, itemsPrinted:0, itemsSold:0, totalEarned:0, purchasedUpgrades:[], activePrint:null, inventory:[]};
+}
+function defaultBuyerState(){
+  return {money:40, itemsBought:0, totalSpent:0, jobsDone:0, activeJob:null, purchases:[]};
+}
+
+/* ---------------- color utils ---------------- */
+function shade(hex, pct){
+  let c = hex.replace('#','');
+  if(c.length===3) c = c.split('').map(x=>x+x).join('');
+  let r = parseInt(c.substr(0,2),16), g = parseInt(c.substr(2,2),16), b = parseInt(c.substr(4,2),16);
+  const adj = v => Math.max(0, Math.min(255, Math.round(v + (pct/100)*255)));
+  r=adj(r);g=adj(g);b=adj(b);
+  return '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+/* ---------------- isometric icon generator ---------------- */
+function boxFaces(cx,cy,dx,dy,h,color){
+  const top=[cx-dx,cy-dy], back=[cx,cy-2*dy], right=[cx+dx,cy-dy], front=[cx,cy];
+  const bl=[cx-dx,cy-dy+h], bf=[cx,cy+h], br=[cx+dx,cy-dy+h];
+  const pts = a => a.map(p=>p.join(',')).join(' ');
+  return `
+    <polygon points="${pts([top,back,right,front])}" fill="${shade(color,18)}" stroke="${shade(color,-25)}" stroke-width="1.5" stroke-linejoin="round"/>
+    <polygon points="${pts([top,front,bf,bl])}" fill="${shade(color,-24)}" stroke="${shade(color,-35)}" stroke-width="1.5" stroke-linejoin="round"/>
+    <polygon points="${pts([front,right,br,bf])}" fill="${shade(color,-8)}" stroke="${shade(color,-35)}" stroke-width="1.5" stroke-linejoin="round"/>
+  `;
+}
+function pyramidFaces(cx,baseY,dx,dy,h,color){
+  const left=[cx-dx,baseY], front=[cx,baseY+dy], right=[cx+dx,baseY], back=[cx,baseY-dy];
+  const apex=[cx, baseY-dy-h];
+  const pts=a=>a.map(p=>p.join(',')).join(' ');
+  return `
+    <polygon points="${pts([left,front,right,back])}" fill="${shade(color,-30)}" opacity="0.35"/>
+    <polygon points="${pts([apex,left,front])}" fill="${shade(color,-22)}" stroke="${shade(color,-35)}" stroke-width="1.5" stroke-linejoin="round"/>
+    <polygon points="${pts([apex,front,right])}" fill="${shade(color,4)}" stroke="${shade(color,-35)}" stroke-width="1.5" stroke-linejoin="round"/>
+  `;
+}
+function cylinderCone(cx,topY,rx,ry,h,color,isCone){
+  const bl=[cx-rx,topY+h], br=[cx+rx,topY+h];
+  if(isCone){
+    const apex=[cx,topY];
+    return `
+      <path d="M${apex[0]},${apex[1]} L${bl[0]},${bl[1]} A${rx},${ry} 0 0 0 ${br[0]},${br[1]} Z" fill="${shade(color,-6)}" stroke="${shade(color,-35)}" stroke-width="1.5" stroke-linejoin="round"/>
+      <ellipse cx="${cx}" cy="${topY+h}" rx="${rx}" ry="${ry}" fill="${shade(color,-30)}" stroke="${shade(color,-35)}" stroke-width="1.5"/>
+    `;
+  }
+  const tl=[cx-rx,topY], tr=[cx+rx,topY];
+  return `
+    <path d="M${tl[0]},${tl[1]} L${bl[0]},${bl[1]} A${rx},${ry} 0 0 0 ${br[0]},${br[1]} L${tr[0]},${tr[1]} A${rx},${ry} 0 0 0 ${tl[0]},${tl[1]} Z" fill="${shade(color,-6)}" stroke="${shade(color,-35)}" stroke-width="1.5" stroke-linejoin="round"/>
+    <ellipse cx="${cx}" cy="${topY+h}" rx="${rx}" ry="${ry}" fill="${shade(color,-30)}" stroke="${shade(color,-35)}" stroke-width="1.5"/>
+    <ellipse cx="${cx}" cy="${topY}" rx="${rx}" ry="${ry}" fill="${shade(color,20)}" stroke="${shade(color,-25)}" stroke-width="1.5"/>
+  `;
+}
+function starPath(cx,cy,outerR,innerR){
+  let pts=[];
+  for(let i=0;i<10;i++){
+    const r = i%2===0?outerR:innerR;
+    const a = (Math.PI/5)*i - Math.PI/2;
+    pts.push([cx+r*Math.cos(a), cy+r*Math.sin(a)]);
+  }
+  return pts.map(p=>p.join(',')).join(' ');
+}
+function shapeSVG(shapeId, color, sizeScale){
+  const s = Math.max(0.6, Math.min(1.6, sizeScale||1));
+  let inner = '';
+  switch(shapeId){
+    case 'cube':
+      inner = boxFaces(80,95,42*s,21*s,50*s,color); break;
+    case 'cylinder':
+      inner = cylinderCone(80,60-10*s,42*s,20*s,62*s,color,false); break;
+    case 'cone':
+      inner = cylinderCone(80,50-6*s,40*s,19*s,66*s,color,true); break;
+    case 'pyramid':
+      inner = pyramidFaces(80,128,44*s,22*s,70*s,color); break;
+    case 'star': {
+      const back = starPath(86,86,46*s,20*s);
+      const front = starPath(80,80,46*s,20*s);
+      inner = `<polygon points="${back}" fill="${shade(color,-30)}"/><polygon points="${front}" fill="${shade(color,8)}" stroke="${shade(color,-30)}" stroke-width="1.5" stroke-linejoin="round"/>`;
+      break;
+    }
+    case 'sphere': {
+      const r = 50*s;
+      const gid = 'g'+Math.random().toString(36).slice(2,9);
+      inner = `
+        <defs><radialGradient id="${gid}" cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stop-color="${shade(color,30)}"/>
+          <stop offset="60%" stop-color="${color}"/>
+          <stop offset="100%" stop-color="${shade(color,-30)}"/>
+        </radialGradient></defs>
+        <ellipse cx="80" cy="${86+r*0.72}" rx="${r*0.75}" ry="${r*0.16}" fill="black" opacity="0.28"/>
+        <circle cx="80" cy="86" r="${r}" fill="url(#${gid})" stroke="${shade(color,-30)}" stroke-width="1"/>
+      `;
+      break;
+    }
+    case 'vase': {
+      const w = 26*s, midw = 42*s, baseW = 30*s, topY = 36, botY = 150;
+      const gid='v'+Math.random().toString(36).slice(2,9);
+      inner = `
+        <defs><linearGradient id="${gid}" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stop-color="${shade(color,-28)}"/>
+          <stop offset="55%" stop-color="${color}"/>
+          <stop offset="100%" stop-color="${shade(color,20)}"/>
+        </linearGradient></defs>
+        <path d="M${80-w},${topY}
+          C${80-midw-10},${topY+40} ${80-midw},${botY-40} ${80-baseW},${botY}
+          L${80+baseW},${botY}
+          C${80+midw},${botY-40} ${80+midw+10},${topY+40} ${80+w},${topY}
+          C${80+w-8},${topY+14} ${80-w+8},${topY+14} ${80-w},${topY} Z"
+          fill="url(#${gid})" stroke="${shade(color,-35)}" stroke-width="1.5" stroke-linejoin="round"/>
+        <ellipse cx="80" cy="${topY}" rx="${w}" ry="7" fill="${shade(color,-35)}"/>
+      `;
+      break;
+    }
+    case 'robot': {
+      inner = `
+        ${boxFaces(80,118,34*s,17*s,34*s,shade(color,-4))}
+        ${boxFaces(80,62,22*s,11*s,26*s,color)}
+        <circle cx="${80-8*s}" cy="60" r="${3.6*s}" fill="${shade('#4fd1e5',10)}"/>
+        <circle cx="${80+8*s}" cy="60" r="${3.6*s}" fill="${shade('#4fd1e5',10)}"/>
+        <rect x="${80-3*s}" y="${34-8*s}" width="${6*s}" height="${10*s}" rx="2" fill="${shade(color,-20)}"/>
+        <circle cx="80" cy="${28-8*s}" r="${4*s}" fill="${shade('#ff6b35',10)}"/>
+      `;
+      break;
+    }
+    default: inner = boxFaces(80,95,40*s,20*s,50*s,color);
+  }
+  return `<svg viewBox="0 0 160 170" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+}
+
+/* ---------------- toasts ---------------- */
+function toast(msg, kind){
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind?(' '+kind):'');
+  el.textContent = msg;
+  document.getElementById('toastStack').appendChild(el);
+  setTimeout(()=>{ el.style.transition='opacity .3s'; el.style.opacity='0'; setTimeout(()=>el.remove(),300); }, 3600);
+}
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function timeAgo(ts){
+  const s = Math.floor((Date.now()-ts)/1000);
+  if(s<60) return s+'s ago';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  return Math.floor(s/3600)+'h ago';
+}
+
+/* ================= BOOT / LOBBY / MATCHMAKING ================= */
+async function boot(){
+  clientId = await sGet('clientId', false);
+  if(!clientId){ clientId = uid(); await sSet('clientId', clientId, false); }
+  playerName = (await sGet('playerName', false)) || '';
+
+  const cached = await sGet('currentMatch', false);
+  if(cached && cached.code){
+    const doc = await sGet(matchKey(cached.code), true);
+    if(doc && doc.players.some(p=>p.clientId===clientId)){
+      matchDoc = doc; matchCode = doc.code;
+      if(doc.status==='ready' && doc.roles && doc.roles[clientId]){
+        role = doc.roles[clientId];
+        await loadMatchStates();
+        renderGameShell();
+        startPolling(); startHeartbeat();
+        return;
+      } else if(doc.status==='waiting'){
+        renderWaitingScreen();
+        return;
+      }
+    }
+    await sSet('currentMatch', null, false);
+  }
+  renderLobby();
+}
+
+function renderLobby(err){
+  document.getElementById('headerRight').innerHTML = '';
+  const root = document.getElementById('screenRoot');
+  root.innerHTML = `
+    <div class="lobby-card">
+      <div class="limitation-banner">
+        <b>⚠ Prototype notice —</b> LayerBay runs entirely in the browser using shared client-side storage
+        as a stand-in for a real multiplayer server. There's no authentication and purchases aren't truly
+        atomic — a rare race between two rapid actions is possible. A real backend would own players,
+        matches, money, inventory and purchases, and validate every transaction server-side. Don't treat
+        this as secure or trust it with anything of real value.
+      </div>
+
+      <div class="panel">
+        <h2 class="big">Set up a match</h2>
+        <p class="lede">Two humans, one match: one of you prints, the other buys. Roles are assigned randomly once you're both in.</p>
+        <label class="field-label">Your name</label>
+        <input class="text-input" id="nameInput" maxlength="18" placeholder="e.g. Riya" value="${escapeHtml(playerName)}">
+
+        <button class="btn btn-primary btn-full" id="createBtn">Create a match</button>
+
+        <div class="divider-or">OR JOIN ONE</div>
+
+        <label class="field-label">Match code</label>
+        <input class="text-input mono" id="codeInput" maxlength="4" placeholder="XXXX">
+        <button class="btn btn-cool btn-full" id="joinBtn">Join match</button>
+        <div class="err-text" id="lobbyErr">${err ? escapeHtml(err) : ''}</div>
+      </div>
+    </div>
+  `;
+  document.getElementById('createBtn').addEventListener('click', onCreateClick);
+  document.getElementById('joinBtn').addEventListener('click', onJoinClick);
+  document.getElementById('codeInput').addEventListener('input', e=>{
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4);
+  });
+}
+
+function readName(){
+  const v = document.getElementById('nameInput').value.trim();
+  return v.slice(0,18);
+}
+
+async function onCreateClick(){
+  const name = readName();
+  if(!name){ document.getElementById('lobbyErr').textContent = 'Enter a name first.'; return; }
+  playerName = name;
+  await sSet('playerName', playerName, false);
+
+  let code, exists = true, tries = 0;
+  while(exists && tries < 8){ code = genCode(); exists = !!(await sGet(matchKey(code), true)); tries++; }
+
+  const doc = { code, status:'waiting', players:[{clientId, name:playerName, lastSeen:Date.now()}], roles:{}, createdAt:Date.now() };
+  const ok = await sSet(matchKey(code), doc, true);
+  if(!ok){ document.getElementById('lobbyErr').textContent = 'Could not create a match — try again.'; return; }
+
+  matchDoc = doc; matchCode = code;
+  await sSet('currentMatch', {code}, false);
+  renderWaitingScreen();
+}
+
+async function onJoinClick(){
+  const name = readName();
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if(!name){ document.getElementById('lobbyErr').textContent = 'Enter a name first.'; return; }
+  if(code.length!==4){ document.getElementById('lobbyErr').textContent = 'Enter the 4-character match code.'; return; }
+  playerName = name;
+  await sSet('playerName', playerName, false);
+
+  const result = await joinMatch(code);
+  if(!result.ok){ document.getElementById('lobbyErr').textContent = result.msg; return; }
+  if(result.waiting){ renderWaitingScreen(); return; }
+  renderGameShell();
+  startPolling(); startHeartbeat();
+  toast(`Match ready — you are the ${role.toUpperCase()}!`, 'good');
+}
+
+async function joinMatch(code){
+  const doc = await sGet(matchKey(code), true);
+  if(!doc) return {ok:false, msg:'No match found with that code.'};
+
+  if(doc.players.some(p=>p.clientId===clientId)){
+    matchDoc = doc; matchCode = code;
+    await sSet('currentMatch', {code}, false);
+    if(doc.status==='ready'){
+      role = doc.roles[clientId];
+      await loadMatchStates();
+      return {ok:true};
+    }
+    return {ok:true, waiting:true};
+  }
+
+  if(doc.status!=='waiting' || doc.players.length>=2){
+    return {ok:false, msg:'That match is already full or has started.'};
+  }
+
+  doc.players.push({clientId, name:playerName, lastSeen:Date.now()});
+  const firstIsPrinter = Math.random() < 0.5;
+  doc.roles = {};
+  doc.roles[doc.players[0].clientId] = firstIsPrinter ? 'printer' : 'buyer';
+  doc.roles[doc.players[1].clientId] = firstIsPrinter ? 'buyer' : 'printer';
+  doc.status = 'ready';
+
+  const ok = await sSet(matchKey(code), doc, true);
+  if(!ok) return {ok:false, msg:'Could not join — try again.'};
+
+  if(!(await sGet(pKey(code), true))) await sSet(pKey(code), defaultPrinterState(), true);
+  if(!(await sGet(bKey(code), true))) await sSet(bKey(code), defaultBuyerState(), true);
+  if(!(await sGet(lKey(code), true))) await sSet(lKey(code), [], true);
+  if(!(await sGet(fKey(code), true))) await sSet(fKey(code), [], true);
+
+  matchDoc = doc; matchCode = code; role = doc.roles[clientId];
+  await sSet('currentMatch', {code}, false);
+  await loadMatchStates();
+  return {ok:true};
+}
+
+function renderWaitingScreen(){
+  document.getElementById('headerRight').innerHTML = '';
+  const root = document.getElementById('screenRoot');
+  root.innerHTML = `
+    <div class="lobby-card">
+      <div class="panel" style="text-align:center;">
+        <div class="section-title" style="justify-content:center;">Waiting for a second player</div>
+        <div class="code-display">${matchCode}</div>
+        <p class="lede">Send this code to whoever you're playing with. Once they join, roles are handed out at random.</p>
+        <div class="waiting-spin"></div>
+        <button class="btn btn-danger" id="cancelWaitBtn">Cancel match</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('cancelWaitBtn').addEventListener('click', async ()=>{
+    clearInterval(waitTimer);
+    const doc = await sGet(matchKey(matchCode), true);
+    if(doc && doc.status==='waiting') await sDel(matchKey(matchCode), true);
+    await sSet('currentMatch', null, false);
+    matchCode = null; matchDoc = null;
+    renderLobby();
+  });
+
+  clearInterval(waitTimer);
+  waitTimer = setInterval(async ()=>{
+    const doc = await sGet(matchKey(matchCode), true);
+    if(!doc){ return; }
+    if(doc.status==='ready'){
+      clearInterval(waitTimer);
+      matchDoc = doc;
+      role = doc.roles[clientId];
+      await loadMatchStates();
+      renderGameShell();
+      startPolling(); startHeartbeat();
+      toast(`Match ready — you are the ${role.toUpperCase()}!`, 'good');
+    }
+  }, 2000);
+}
+
+async function loadMatchStates(){
+  listings = (await sGet(lKey(matchCode), true)) || [];
+  feed = (await sGet(fKey(matchCode), true)) || [];
+  if(role==='printer'){
+    printerState = (await sGet(pKey(matchCode), true)) || defaultPrinterState();
+    if(printerState.activePrint){
+      const elapsed = (Date.now() - printerState.activePrint.startedAt)/1000;
+      if(elapsed >= printerState.activePrint.duration) await finalizePrint(true);
+    }
+  } else {
+    buyerState = (await sGet(bKey(matchCode), true)) || defaultBuyerState();
+  }
+}
+
+/* ---------------- leave match ---------------- */
+async function leaveMatch(){
+  if(!confirm('Leaving ends this match for both players. Continue?')) return;
+  clearInterval(pollTimer); clearInterval(heartbeatTimer); clearInterval(printTicker); clearInterval(jobTicker);
+  bonusTimeouts.forEach(t=>clearTimeout(t)); bonusTimeouts=[];
+  if(matchCode){
+    await sDel(matchKey(matchCode), true);
+    await sDel(pKey(matchCode), true);
+    await sDel(bKey(matchCode), true);
+    await sDel(lKey(matchCode), true);
+    await sDel(fKey(matchCode), true);
+  }
+  await sSet('currentMatch', null, false);
+  matchCode = null; role = null; matchDoc = null; printerState = null; buyerState = null; listings=[]; feed=[];
+  renderLobby();
+}
+
+/* ================= GAME SHELL ================= */
+function tabsForRole(){
+  return role==='printer'
+    ? [
+        {id:'print', label:'Print', icon:ICON.print},
+        {id:'inventory', label:'Inventory', icon:ICON.grid},
+        {id:'shop', label:'Shop', icon:ICON.shop},
+        {id:'upgrades', label:'Upgrades', icon:ICON.upgrade},
+        {id:'stats', label:'Stats', icon:ICON.stats},
+      ]
+    : [
+        {id:'jobs', label:'Jobs', icon:ICON.job},
+        {id:'market', label:'Market', icon:ICON.market},
+        {id:'purchases', label:'Purchases', icon:ICON.grid},
+        {id:'stats', label:'Stats', icon:ICON.stats},
+      ];
+}
+
+function renderGameShell(){
+  renderHeaderRight();
+  const root = document.getElementById('screenRoot');
+  const tabs = tabsForRole();
+  root.innerHTML = `
+    <div class="tabs" id="tabs">
+      ${tabs.map(t=>`<button class="tab-btn" data-tab="${t.id}">${t.icon}${t.label}</button>`).join('')}
+    </div>
+    <div id="tabContent"></div>
+  `;
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
+  });
+  switchTab(tabs[0].id);
+  updateConnIndicator();
+}
+
+function renderHeaderRight(){
+  const el = document.getElementById('headerRight');
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div class="role-badge role-${role}">${role==='printer' ? '🖨️ Printer' : '🛒 Buyer'}</div>
+      <div class="conn-row"><span class="conn-dot" id="connDot"></span><span id="connLabel">connecting…</span></div>
+      <div class="stat-strip" id="statStrip"></div>
+      <button class="btn btn-sm btn-ghost" id="leaveBtn">Leave match</button>
+    </div>
+  `;
+  document.getElementById('leaveBtn').addEventListener('click', leaveMatch);
+  renderStatStrip();
+}
+
+function renderStatStrip(){
+  const strip = document.getElementById('statStrip');
+  if(!strip) return;
+  if(role==='printer' && printerState){
+    strip.innerHTML = `
+      <div class="stat-pill"><span class="dot dot-money"></span>$<b>${printerState.money.toFixed(2)}</b></div>
+      <div class="stat-pill"><span class="dot dot-fil"></span><b>${Math.round(printerState.filament)}</b>g filament</div>
+    `;
+  } else if(role==='buyer' && buyerState){
+    strip.innerHTML = `<div class="stat-pill"><span class="dot dot-money"></span>$<b>${buyerState.money.toFixed(2)}</b></div>`;
+  }
+}
+
+function updateConnIndicator(){
+  if(!matchDoc) return;
+  const other = matchDoc.players.find(p=>p.clientId!==clientId);
+  const dot = document.getElementById('connDot');
+  const label = document.getElementById('connLabel');
+  if(!dot || !label) return;
+  if(other && (Date.now() - other.lastSeen) < 15000){
+    dot.classList.add('online');
+    label.textContent = (other.name || 'Player') + ' online';
+  } else {
+    dot.classList.remove('online');
+    label.textContent = (other ? other.name : 'Player') + ' away';
+  }
+}
+
+/* ---------------- polling & presence ---------------- */
+function startPolling(){
+  clearInterval(pollTimer);
+  pollTimer = setInterval(refreshShared, 3000);
+}
+async function refreshShared(){
+  if(!matchCode) return;
+  listings = (await sGet(lKey(matchCode), true)) || [];
+  feed = (await sGet(fKey(matchCode), true)) || [];
+  if(role==='printer'){
+    const fresh = await sGet(pKey(matchCode), true);
+    if(fresh && !printerState.activePrint) printerState = fresh;
+    else if(fresh){ fresh.activePrint = printerState.activePrint; printerState = fresh; }
+    renderStatStrip();
+  }
+  if(currentTab==='shop' || currentTab==='market') rerenderCurrentTab();
+  else if(currentTab==='inventory' && role==='printer') rerenderCurrentTab();
+}
+function startHeartbeat(){
+  clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(async ()=>{
+    if(!matchCode) return;
+    const doc = await sGet(matchKey(matchCode), true);
+    if(!doc) return;
+    const idx = doc.players.findIndex(p=>p.clientId===clientId);
+    if(idx>-1){
+      doc.players[idx].lastSeen = Date.now();
+      await sSet(matchKey(matchCode), doc, true);
+      matchDoc = doc;
+      updateConnIndicator();
+    }
+  }, 8000);
+}
+
+function rerenderCurrentTab(){
+  const c = document.getElementById('tabContent');
+  if(!c) return;
+  if(currentTab==='shop') renderShopTab(c);
+  else if(currentTab==='market') renderMarketTab(c);
+  else if(currentTab==='inventory') renderInventoryTab(c);
+}
+
+/* ---------------- tab switching ---------------- */
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  const c = document.getElementById('tabContent');
+  if(tab==='print') renderPrintTab(c);
+  else if(tab==='inventory') renderInventoryTab(c);
+  else if(tab==='shop') renderShopTab(c);
+  else if(tab==='upgrades') renderUpgradesTab(c);
+  else if(tab==='jobs') renderJobsTab(c);
+  else if(tab==='market') renderMarketTab(c);
+  else if(tab==='purchases') renderPurchasesTab(c);
+  else if(tab==='stats') renderStatsTab(c);
+}
+
+/* ================= PRINTER: PRINT TAB ================= */
+function speedMult(){ const n = printerState.purchasedUpgrades.filter(id=>id.startsWith('speed')).length; return Math.pow(0.85, n); }
+function effMult(){ const n = printerState.purchasedUpgrades.filter(id=>id==='eff1').length; return Math.pow(0.90, n); }
+
+function renderPrintTab(container){
+  const active = printerState.activePrint;
+  container.innerHTML = `
+    <div class="print-layout">
+      <div class="panel">
+        <div class="section-title">Build plate</div>
+        <div class="bed-stage" id="bedStage">
+          <div class="gantry-rail"></div>
+          <div class="gantry-head" id="gantryHead" style="left:10px;"></div>
+          <div class="print-icon-holder" id="printHolder"></div>
+          <div class="progress-wrap ${active?'':'hidden'}" id="progressWrap">
+            <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+            <div class="progress-meta"><span id="progressPct">0%</span><span id="progressEta">--</span></div>
+          </div>
+        </div>
+        <div class="notice" style="margin-top:12px;">Only you can see filament and money here. Listings and sales are shared live with your buyer.</div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">Design a print</div>
+        <div class="builder-form">
+          <label>Shape</label>
+          <div class="shape-grid" id="shapeGrid"></div>
+
+          <label>Colour</label>
+          <div class="color-row">
+            <input type="color" id="colorInput" value="${window.__lb_color || '#ff8c5a'}">
+            <span class="swatch-name" id="colorLabel">${window.__lb_color || '#ff8c5a'}</span>
+          </div>
+
+          <label>Size</label>
+          <div class="range-row">
+            <input type="range" id="sizeInput" min="0.6" max="1.6" step="0.05" value="${window.__lb_size || 1}">
+            <span class="range-val" id="sizeLabel">${(window.__lb_size||1).toFixed(2)}x</span>
+          </div>
+
+          <div class="hazard-divider"></div>
+          <div id="costBox"></div>
+          <button class="btn btn-primary btn-full" id="printBtn">Start print</button>
+
+          <div class="hazard-divider"></div>
+          <div class="section-title" style="margin-bottom:10px;">Buy filament</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm" data-fil="100">+100g ($5)</button>
+            <button class="btn btn-sm" data-fil="300">+300g ($14)</button>
+            <button class="btn btn-sm" data-fil="1000">+1000g ($42)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  window.__lb_shape = window.__lb_shape || 'cube';
+  window.__lb_color = window.__lb_color || '#ff8c5a';
+  window.__lb_size = window.__lb_size || 1.0;
+
+  const grid = document.getElementById('shapeGrid');
+  grid.innerHTML = SHAPES.map(sh=>{
+    const locked = printerState.totalEarned < sh.unlock;
+    return `<div class="shape-opt ${locked?'locked':'selectable'} ${window.__lb_shape===sh.id?'selected':''}">
+      <button ${locked?'disabled':''} data-shape-btn="${sh.id}">
+        ${shapeSVG(sh.id, locked?'#5c6579':window.__lb_color, 1)}
+        <span>${sh.label}</span>
+      </button>
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('[data-shape-btn]').forEach(b=>{
+    b.addEventListener('click', ()=>{ window.__lb_shape = b.dataset.shapeBtn; renderPrintTab(container); });
+  });
+
+  document.getElementById('colorInput').addEventListener('input', e=>{
+    window.__lb_color = e.target.value;
+    document.getElementById('colorLabel').textContent = window.__lb_color;
+    updatePrintPreviewIdle(); updateCostBox();
+  });
+  document.getElementById('sizeInput').addEventListener('input', e=>{
+    window.__lb_size = parseFloat(e.target.value);
+    document.getElementById('sizeLabel').textContent = window.__lb_size.toFixed(2)+'x';
+    updatePrintPreviewIdle(); updateCostBox();
+  });
+  document.querySelectorAll('[data-fil]').forEach(b=>{
+    b.addEventListener('click', ()=> buyFilament(parseInt(b.dataset.fil)));
+  });
+  document.getElementById('printBtn').addEventListener('click', startPrint);
+
+  updateCostBox();
+  if(active) showActivePrintUI(active); else updatePrintPreviewIdle();
+}
+
+function updatePrintPreviewIdle(){
+  const holder = document.getElementById('printHolder');
+  if(!holder) return;
+  holder.innerHTML = shapeSVG(window.__lb_shape, window.__lb_color, window.__lb_size);
+}
+function updateCostBox(){
+  const sh = shapeById(window.__lb_shape);
+  const grams = Math.max(1, Math.round(sh.grams * window.__lb_size * effMult()));
+  const time = Math.max(2, Math.round(sh.time * (0.85+window.__lb_size*0.3) * speedMult()));
+  const suggested = Math.round(sh.price * window.__lb_size * 10)/10;
+  const box = document.getElementById('costBox');
+  if(!box) return;
+  box.innerHTML = `
+    <div class="cost-line"><span>Filament needed</span><b>${grams}g</b></div>
+    <div class="cost-line"><span>Print time</span><b>${time}s</b></div>
+    <div class="cost-line"><span>Suggested price</span><b>$${suggested.toFixed(2)}</b></div>
+  `;
+  const btn = document.getElementById('printBtn');
+  if(btn){
+    const locked = printerState.totalEarned < sh.unlock;
+    const insufficient = printerState.filament < grams;
+    const busy = !!printerState.activePrint;
+    btn.disabled = locked || insufficient || busy;
+    btn.textContent = busy ? 'Printer busy…' : locked ? `Unlock at $${sh.unlock} earned` : insufficient ? 'Not enough filament' : 'Start print';
+  }
+}
+
+async function buyFilament(grams){
+  const costMap = {100:5,300:14,1000:42};
+  const cost = costMap[grams] ?? Math.round(grams*0.045);
+  if(printerState.money < cost){ toast('Not enough money for that filament.', 'bad'); return; }
+  printerState.money -= cost;
+  printerState.filament += grams;
+  await savePrinterState();
+  renderStatStrip();
+  updateCostBox();
+  toast(`Bought ${grams}g filament for $${cost}.`, 'good');
+}
+
+async function startPrint(){
+  const sh = shapeById(window.__lb_shape);
+  const grams = Math.max(1, Math.round(sh.grams * window.__lb_size * effMult()));
+  const duration = Math.max(2, Math.round(sh.time * (0.85+window.__lb_size*0.3) * speedMult()));
+  if(printerState.totalEarned < sh.unlock){ toast('Shape locked.', 'bad'); return; }
+  if(printerState.filament < grams){ toast('Not enough filament.', 'bad'); return; }
+  if(printerState.activePrint){ toast('Printer is already busy.', 'bad'); return; }
+
+  printerState.filament -= grams;
+  printerState.activePrint = { shape: window.__lb_shape, color: window.__lb_color, size: window.__lb_size, grams, duration, startedAt: Date.now() };
+  await savePrinterState();
+  renderStatStrip();
+  showActivePrintUI(printerState.activePrint);
+  startPrintTicker();
+}
+
+function showActivePrintUI(active){
+  const holder = document.getElementById('printHolder');
+  const wrap = document.getElementById('progressWrap');
+  const printBtn = document.getElementById('printBtn');
+  if(!holder) return;
+  if(wrap) wrap.classList.remove('hidden');
+  if(printBtn){ printBtn.disabled = true; printBtn.textContent = 'Printer busy…'; }
+  holder.innerHTML = `<div class="layer-clip" style="clip-path:inset(100% 0 0 0);">${shapeSVG(active.shape, active.color, active.size)}</div>`;
+}
+
+function startPrintTicker(){
+  clearInterval(printTicker);
+  printTicker = setInterval(()=>{
+    if(!printerState || !printerState.activePrint){ clearInterval(printTicker); return; }
+    const active = printerState.activePrint;
+    const elapsed = (Date.now() - active.startedAt)/1000;
+    const pct = Math.min(100, (elapsed/active.duration)*100);
+
+    if(currentTab==='print'){
+      const clip = document.querySelector('.layer-clip');
+      const fill = document.getElementById('progressFill');
+      const pctEl = document.getElementById('progressPct');
+      const etaEl = document.getElementById('progressEta');
+      const gantry = document.getElementById('gantryHead');
+      if(clip) clip.style.clipPath = `inset(${100-pct}% 0 0 0)`;
+      if(fill) fill.style.width = pct+'%';
+      if(pctEl) pctEl.textContent = Math.round(pct)+'%';
+      if(etaEl) etaEl.textContent = Math.max(0, Math.ceil(active.duration-elapsed))+'s left';
+      if(gantry){
+        const stage = document.getElementById('bedStage');
+        const w = stage ? stage.clientWidth-40 : 200;
+        gantry.style.left = (10 + (pct/100)*w) + 'px';
+      }
+    }
+    if(elapsed >= active.duration){ clearInterval(printTicker); finalizePrint(false); }
+  }, 150);
+}
+
+async function finalizePrint(silent){
+  const active = printerState.activePrint;
+  if(!active) return;
+  const sh = shapeById(active.shape);
+  const item = { id: uid(), shape: active.shape, color: active.color, size: active.size, name: sh.label, createdAt: Date.now() };
+  printerState.inventory.unshift(item);
+  printerState.itemsPrinted += 1;
+  printerState.activePrint = null;
+  await savePrinterState();
+  if(!silent) toast(`Print complete: ${sh.label}!`, 'good');
+  renderStatStrip();
+  if(currentTab==='print') renderPrintTab(document.getElementById('tabContent'));
+  if(currentTab==='inventory') renderInventoryTab(document.getElementById('tabContent'));
+}
+
+async function savePrinterState(){ if(matchCode) await sSet(pKey(matchCode), printerState, true); }
+async function saveBuyerState(){ if(matchCode) await sSet(bKey(matchCode), buyerState, true); }
+async function saveListings(){ if(matchCode) await sSet(lKey(matchCode), listings, true); }
+async function pushFeed(text){
+  if(!matchCode) return;
+  const f = (await sGet(fKey(matchCode), true)) || [];
+  f.unshift({text, at: Date.now()});
+  const capped = f.slice(0,30);
+  await sSet(fKey(matchCode), capped, true);
+  feed = capped;
+}
+
+/* ================= PRINTER: INVENTORY TAB ================= */
+function renderInventoryTab(container){
+  const inv = printerState.inventory;
+  container.innerHTML = `
+    <div class="panel">
+      <div class="section-title">Finished prints</div>
+      ${inv.length===0 ? `<div class="empty-state">Nothing printed yet. Head to the Print tab to start a job.</div>` : `<div class="item-grid" id="invGrid"></div>`}
+    </div>
+  `;
+  if(inv.length===0) return;
+  const grid = document.getElementById('invGrid');
+  grid.innerHTML = inv.map(it=>`
+    <div class="item-card">
+      <div class="item-thumb">${shapeSVG(it.shape, it.color, it.size)}</div>
+      <div class="item-name">${it.name}</div>
+      <div class="item-meta">${it.size.toFixed(2)}x scale</div>
+      <div class="list-form">
+        <input type="number" min="0.01" max="${MAX_PRICE}" step="0.5" placeholder="Price $" id="price-${it.id}">
+        <button class="btn btn-sm btn-cool" data-list="${it.id}">List</button>
+      </div>
+    </div>
+  `).join('');
+  grid.querySelectorAll('[data-list]').forEach(b=>{
+    b.addEventListener('click', ()=> listItem(b.dataset.list));
+  });
+}
+
+async function listItem(itemId){
+  const priceInput = document.getElementById('price-'+itemId);
+  const price = validatePrice(priceInput.value);
+  if(price===null){ toast(`Enter a price between $0.01 and $${MAX_PRICE.toLocaleString()}.`, 'bad'); return; }
+  const idx = printerState.inventory.findIndex(i=>i.id===itemId);
+  if(idx===-1) return;
+  const item = printerState.inventory[idx];
+
+  const listing = {
+    id: uid(), itemId: item.id, sellerName: playerName,
+    shape: item.shape, color: item.color, size: item.size, name: item.name,
+    price, listedAt: Date.now()
+  };
+  listings = (await sGet(lKey(matchCode), true)) || [];
+  listings.push(listing);
+  const ok = await saveListings();
+  if(ok===false){ toast('Could not list item — try again.', 'bad'); return; }
+
+  printerState.inventory.splice(idx,1);
+  await savePrinterState();
+  await pushFeed(`📦 ${playerName} listed ${item.name} for $${price.toFixed(2)}`);
+  toast(`Listed ${item.name} for $${price.toFixed(2)}.`, 'good');
+  renderInventoryTab(document.getElementById('tabContent'));
+}
+
+/* ================= PRINTER: SHOP TAB ================= */
+async function renderShopTab(container){
+  listings = (await sGet(lKey(matchCode), true)) || [];
+  feed = (await sGet(fKey(matchCode), true)) || [];
+  const mine = listings.filter(l=>l.sellerName===playerName);
+  container.innerHTML = `
+    <div class="panel">
+      <div class="section-title">${escapeHtml(playerName)}'s shop</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="n">$${printerState.money.toFixed(2)}</div><div class="l">On hand</div></div>
+        <div class="stat-box"><div class="n">$${printerState.totalEarned.toFixed(2)}</div><div class="l">Lifetime earned</div></div>
+        <div class="stat-box"><div class="n">${printerState.itemsSold}</div><div class="l">Items sold</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="section-title">Active listings (${mine.length})</div>
+      ${mine.length===0 ? `<div class="empty-state">Nothing listed. List items from your Inventory tab.</div>` : `<div class="item-grid" id="listingsGrid"></div>`}
+    </div>
+    <div class="panel">
+      <div class="section-title">Activity</div>
+      ${feed.length===0 ? `<div class="empty-state">No activity yet.</div>` : `<div class="feed" id="shopFeed"></div>`}
+    </div>
+  `;
+  if(mine.length>0){
+    const grid = document.getElementById('listingsGrid');
+    grid.innerHTML = mine.map(l=>`
+      <div class="item-card">
+        <div class="item-thumb">${shapeSVG(l.shape,l.color,l.size)}</div>
+        <div class="item-name">${l.name}</div>
+        <div class="price-tag">$${l.price.toFixed(2)}</div>
+        <div class="item-actions"><button class="btn btn-sm btn-danger" data-cancel="${l.id}">Cancel</button></div>
+      </div>
+    `).join('');
+    grid.querySelectorAll('[data-cancel]').forEach(b=>{
+      b.addEventListener('click', ()=> cancelListing(b.dataset.cancel));
+    });
+  }
+  if(feed.length>0){
+    document.getElementById('shopFeed').innerHTML = feed.slice(0,15).map(f=>`
+      <div class="feed-item">${escapeHtml(f.text)}<span class="t">${timeAgo(f.at)}</span></div>
+    `).join('');
+  }
+}
+
+async function cancelListing(listingId){
+  listings = (await sGet(lKey(matchCode), true)) || [];
+  const l = listings.find(x=>x.id===listingId);
+  if(!l) return;
+  listings = listings.filter(x=>x.id!==listingId);
+  await saveListings();
+  printerState.inventory.unshift({id: l.itemId, shape:l.shape, color:l.color, size:l.size, name:l.name, createdAt:Date.now()});
+  await savePrinterState();
+  toast('Listing cancelled — item back in inventory.', 'good');
+  renderShopTab(document.getElementById('tabContent'));
+}
+
+/* ================= PRINTER: UPGRADES TAB ================= */
+function renderUpgradesTab(container){
+  container.innerHTML = `
+    <div class="panel">
+      <div class="section-title">Printer upgrades</div>
+      <p class="lede">Spend what you've earned to print faster and use less filament.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${UPGRADES.map(u=>{
+          const owned = printerState.purchasedUpgrades.includes(u.id);
+          return `<div class="upgrade-card">
+            <div class="u-info"><h4>${u.label}</h4><span>${u.desc}</span></div>
+            <button class="btn btn-sm ${owned?'':'btn-primary'}" data-upgrade="${u.id}" ${owned?'disabled':''}>${owned?'Owned':'$'+u.cost}</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+  container.querySelectorAll('[data-upgrade]').forEach(b=>{
+    b.addEventListener('click', ()=> buyUpgrade(b.dataset.upgrade));
+  });
+}
+async function buyUpgrade(id){
+  const u = UPGRADES.find(x=>x.id===id);
+  if(!u || printerState.purchasedUpgrades.includes(id)) return;
+  if(printerState.money < u.cost){ toast('Not enough money for that upgrade.', 'bad'); return; }
+  printerState.money -= u.cost;
+  printerState.purchasedUpgrades.push(id);
+  await savePrinterState();
+  renderStatStrip();
+  toast(`Upgrade purchased: ${u.label}`, 'good');
+  renderUpgradesTab(document.getElementById('tabContent'));
+}
+
+/* ================= PRINTER: STATS TAB ================= */
+function renderStatsTab(container){
+  if(role==='printer'){
+    const next = SHAPES.find(s=>printerState.totalEarned < s.unlock);
+    container.innerHTML = `
+      <div class="panel">
+        <div class="section-title">${escapeHtml(playerName)} — Printer</div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="n">$${printerState.money.toFixed(2)}</div><div class="l">On hand</div></div>
+          <div class="stat-box"><div class="n">$${printerState.totalEarned.toFixed(2)}</div><div class="l">Lifetime earned</div></div>
+          <div class="stat-box"><div class="n">${printerState.itemsPrinted}</div><div class="l">Items printed</div></div>
+          <div class="stat-box"><div class="n">${printerState.itemsSold}</div><div class="l">Items sold</div></div>
+        </div>
+        ${next ? `<p class="lede" style="margin-top:16px;">Earn <b style="color:var(--hazard)">$${(next.unlock-printerState.totalEarned).toFixed(2)}</b> more to unlock <b>${next.label}</b>.</p>` : `<p class="lede" style="margin-top:16px;">All shapes unlocked.</p>`}
+      </div>
+      <div class="panel">
+        <div class="section-title">Shape unlocks</div>
+        ${SHAPES.map(sh=>{
+          const unlocked = printerState.totalEarned >= sh.unlock;
+          return `<div class="unlock-row">
+            ${shapeSVG(sh.id, unlocked?'#ff8c5a':'#4b5468', 0.9)}
+            <div class="u-name">${sh.label}<div class="item-meta" style="text-transform:none;">${sh.desc}</div></div>
+            <div class="u-status ${unlocked?'u-unlocked':'u-locked'}">${unlocked?'Unlocked':'At $'+sh.unlock}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+  } else {
+    container.innerHTML = `
+      <div class="panel">
+        <div class="section-title">${escapeHtml(playerName)} — Buyer</div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="n">$${buyerState.money.toFixed(2)}</div><div class="l">On hand</div></div>
+          <div class="stat-box"><div class="n">$${buyerState.totalSpent.toFixed(2)}</div><div class="l">Total spent</div></div>
+          <div class="stat-box"><div class="n">${buyerState.itemsBought}</div><div class="l">Items bought</div></div>
+          <div class="stat-box"><div class="n">${buyerState.jobsDone}</div><div class="l">Jobs completed</div></div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+/* ================= BUYER: JOBS TAB ================= */
+function renderJobsTab(container){
+  const active = buyerState.activeJob;
+  container.innerHTML = `
+    <div class="panel">
+      <div class="section-title">Earn money</div>
+      <p class="lede">Work a job to earn cash, then spend it in the Market tab on whatever your printer's made.</p>
+      <div class="item-grid" id="jobsGrid"></div>
+    </div>
+  `;
+  const grid = document.getElementById('jobsGrid');
+  if(active){
+    const job = jobById(active.jobId);
+    grid.innerHTML = `
+      <div class="job-card" id="activeJobCard" style="grid-column:1/-1;">
+        <h4>${job.label} — in progress</h4>
+        <p class="job-desc">${job.desc}</p>
+        <div class="progress-track"><div class="progress-fill" id="jobFill" style="width:0%"></div></div>
+        <div class="progress-meta"><span id="jobPct">0%</span><span id="jobEta">--</span></div>
+      </div>
+    `;
+    startJobTicker();
+  } else {
+    grid.innerHTML = JOBS.map(j=>`
+      <div class="job-card">
+        <h4>${j.label}</h4>
+        <p class="job-desc">${j.desc}</p>
+        <div class="job-pay">$${j.pay} · ${j.time}s</div>
+        <button class="btn btn-sm btn-primary" data-job="${j.id}">Start job</button>
+      </div>
+    `).join('');
+    grid.querySelectorAll('[data-job]').forEach(b=>{
+      b.addEventListener('click', ()=> startJob(b.dataset.job));
+    });
+  }
+}
+
+async function startJob(jobId){
+  if(buyerState.activeJob) return;
+  const job = jobById(jobId);
+  buyerState.activeJob = { jobId, startedAt: Date.now(), duration: job.time };
+  jobBonusLocal = 0;
+  bonusTimeouts.forEach(t=>clearTimeout(t)); bonusTimeouts = [];
+  await saveBuyerState();
+  renderJobsTab(document.getElementById('tabContent'));
+  scheduleBonusPrompts(job);
+}
+
+function scheduleBonusPrompts(job){
+  const n = 1 + Math.floor(Math.random()*3);
+  for(let i=0;i<n;i++){
+    const delay = 800 + Math.random()*(job.time*800);
+    const t = setTimeout(()=> showBonusPrompt(), delay);
+    bonusTimeouts.push(t);
+  }
+}
+function showBonusPrompt(){
+  if(!buyerState.activeJob || currentTab!=='jobs') return;
+  const card = document.getElementById('activeJobCard');
+  if(!card || card.querySelector('.tap-bonus-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'tap-bonus-btn';
+  btn.textContent = '⚡ Tap for +$1';
+  btn.addEventListener('click', ()=>{
+    jobBonusLocal += 1;
+    toast('+$1 bonus!', 'good');
+    btn.remove();
+  });
+  card.appendChild(btn);
+  setTimeout(()=>{ if(btn.parentNode) btn.remove(); }, 2200);
+}
+
+function startJobTicker(){
+  clearInterval(jobTicker);
+  jobTicker = setInterval(()=>{
+    if(!buyerState || !buyerState.activeJob){ clearInterval(jobTicker); return; }
+    const active = buyerState.activeJob;
+    const elapsed = (Date.now()-active.startedAt)/1000;
+    const pct = Math.min(100, (elapsed/active.duration)*100);
+    if(currentTab==='jobs'){
+      const fill = document.getElementById('jobFill');
+      const pctEl = document.getElementById('jobPct');
+      const etaEl = document.getElementById('jobEta');
+      if(fill) fill.style.width = pct+'%';
+      if(pctEl) pctEl.textContent = Math.round(pct)+'%';
+      if(etaEl) etaEl.textContent = Math.max(0, Math.ceil(active.duration-elapsed))+'s left';
+    }
+    if(elapsed >= active.duration){ clearInterval(jobTicker); finishJob(); }
+  }, 150);
+}
+
+async function finishJob(){
+  const active = buyerState.activeJob;
+  if(!active) return;
+  const job = jobById(active.jobId);
+  const payout = job.pay + jobBonusLocal;
+  buyerState.money += payout;
+  buyerState.jobsDone += 1;
+  buyerState.activeJob = null;
+  bonusTimeouts.forEach(t=>clearTimeout(t)); bonusTimeouts = [];
+  await saveBuyerState();
+  renderStatStrip();
+  toast(`Job complete: +$${payout.toFixed(2)}${jobBonusLocal>0?` (incl. $${jobBonusLocal} bonus)`:''}`, 'good');
+  if(currentTab==='jobs') renderJobsTab(document.getElementById('tabContent'));
+}
+
+/* ================= BUYER: MARKETPLACE TAB ================= */
+async function renderMarketTab(container){
+  listings = (await sGet(lKey(matchCode), true)) || [];
+  feed = (await sGet(fKey(matchCode), true)) || [];
+  container.innerHTML = `
+    <div class="panel">
+      <div class="section-title">Live activity</div>
+      ${feed.length===0 ? `<div class="empty-state">No activity yet — it'll show up here as things happen.</div>` : `<div class="feed" id="marketFeed"></div>`}
+    </div>
+    <div class="panel">
+      <div class="section-title">Marketplace</div>
+      ${listings.length===0 ? `<div class="empty-state">No listings right now. Check back once your printer lists something.</div>` : `<div class="item-grid" id="marketGrid"></div>`}
+    </div>
+  `;
+  if(feed.length>0){
+    document.getElementById('marketFeed').innerHTML = feed.slice(0,15).map(f=>`
+      <div class="feed-item">${escapeHtml(f.text)}<span class="t">${timeAgo(f.at)}</span></div>
+    `).join('');
+  }
+  if(listings.length>0){
+    const sorted = [...listings].sort((a,b)=>b.listedAt-a.listedAt);
+    document.getElementById('marketGrid').innerHTML = sorted.map(l=>`
+      <div class="market-card">
+        <div class="item-thumb">${shapeSVG(l.shape,l.color,l.size)}</div>
+        <div class="shop-tag">${escapeHtml(l.sellerName)}</div>
+        <div class="item-name">${l.name}</div>
+        <div class="price-tag">$${l.price.toFixed(2)}</div>
+        <button class="btn btn-sm btn-primary" data-buy="${l.id}">Buy</button>
+      </div>
+    `).join('');
+    document.getElementById('marketGrid').querySelectorAll('[data-buy]').forEach(b=>{
+      b.addEventListener('click', ()=> buyListing(b.dataset.buy));
+    });
+  }
+}
+
+async function buyListing(listingId){
+  /* Best-effort client-side "transaction": re-fetch, verify, then write.
+     Not atomic — see prototype notice. A real backend would do this
+     as one server-validated operation. */
+  const fresh = (await sGet(lKey(matchCode), true)) || [];
+  const listing = fresh.find(l=>l.id===listingId);
+  if(!listing){ toast('That item was just sold or cancelled.', 'bad'); renderMarketTab(document.getElementById('tabContent')); return; }
+  if(buyerState.money < listing.price){ toast('Not enough money.', 'bad'); return; }
+
+  const updatedListings = fresh.filter(l=>l.id!==listingId);
+  await sSet(lKey(matchCode), updatedListings, true);
+  listings = updatedListings;
+
+  buyerState.money -= listing.price;
+  buyerState.purchases.unshift({id: uid(), shape:listing.shape, color:listing.color, size:listing.size, name:listing.name, price:listing.price, at:Date.now()});
+  buyerState.itemsBought += 1;
+  buyerState.totalSpent += listing.price;
+  await saveBuyerState();
+  renderStatStrip();
+
+  const printerFresh = (await sGet(pKey(matchCode), true)) || defaultPrinterState();
+  printerFresh.money += listing.price;
+  printerFresh.totalEarned += listing.price;
+  printerFresh.itemsSold += 1;
+  await sSet(pKey(matchCode), printerFresh, true);
+
+  await pushFeed(`🛒 ${playerName} bought ${listing.name} from ${listing.sellerName} for $${listing.price.toFixed(2)}`);
+
+  toast(`Bought ${listing.name}!`, 'good');
+  renderMarketTab(document.getElementById('tabContent'));
+}
+
+/* ================= BUYER: PURCHASES TAB ================= */
+function renderPurchasesTab(container){
+  const p = buyerState.purchases;
+  container.innerHTML = `
+    <div class="panel">
+      <div class="section-title">What you've bought</div>
+      ${p.length===0 ? `<div class="empty-state">Nothing yet. Earn money in Jobs, then browse the Market.</div>` : `<div class="item-grid" id="purchGrid"></div>`}
+    </div>
+  `;
+  if(p.length===0) return;
+  document.getElementById('purchGrid').innerHTML = p.map(it=>`
+    <div class="item-card">
+      <div class="item-thumb">${shapeSVG(it.shape, it.color, it.size)}</div>
+      <div class="item-name">${it.name}</div>
+      <div class="item-meta">Bought for $${it.price.toFixed(2)}</div>
+    </div>
+  `).join('');
+}
+
+boot();
+</script>
+</body>
+</html>
