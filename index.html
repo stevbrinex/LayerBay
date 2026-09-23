@@ -334,6 +334,7 @@ input[type=range]{width:100%;accent-color:var(--hot);}
   <script type="module">
   // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import { getDatabase, ref as dbRef, get, set, update, remove, onValue, push, runTransaction } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
   // TODO: Add SDKs for Firebase products that you want to use
   // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -350,6 +351,88 @@ input[type=range]{width:100%;accent-color:var(--hot);}
 
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
+  const database = getDatabase(app);
+
+  function deepMerge(a,b){
+    if(!a || typeof a !== "object" || Array.isArray(a)) return b;
+    const out = {...a};
+    for(const [k,v] of Object.entries(b || {})){
+      out[k] = (v && typeof v === "object" && !Array.isArray(v) && out[k] && typeof out[k] === "object" && !Array.isArray(out[k]))
+        ? deepMerge(out[k], v) : v;
+    }
+    return out;
+  }
+
+  function makeDoc(path){
+    const clean = path.replace(/^\/+|\/+$/g, '');
+    return {
+      async get(){ const snap = await get(dbRef(database, clean)); return { exists:snap.exists(), data:()=>snap.val() }; },
+      async set(value){ return set(dbRef(database, clean), value); },
+      async update(value){
+        const snap = await get(dbRef(database, clean));
+        return set(dbRef(database, clean), deepMerge(snap.exists()?snap.val():{}, value));
+      },
+      async delete(){ return remove(dbRef(database, clean)); },
+      onSnapshot(callback, error){
+        return onValue(dbRef(database, clean), snap=>callback({exists:snap.exists(), data:()=>snap.val()}), error);
+      },
+      async acquire({holder, ttlMs=5000}){
+        const leaseRef = dbRef(database, clean+'/_lease');
+        let acquired = false;
+        await runTransaction(leaseRef, current=>{
+          const now = Date.now();
+          if(!current || !current.holder || (now-current.at) > (current.ttlMs || 5000) || current.holder===holder){
+            acquired = true;
+            return {holder, at:now, ttlMs};
+          }
+          return;
+        });
+        return {acquired};
+      }
+    };
+  }
+
+  function makeCollection(path, orderField=null, orderDir="asc", maxItems=null){
+    const clean = path.replace(/^\/+|\/+$/g, '');
+    const api = {
+      orderBy(field, dir="asc"){ return makeCollection(clean, field, dir, maxItems); },
+      limit(n){ return makeCollection(clean, orderField, orderDir, n); },
+      async get(){
+        const snap = await get(dbRef(database, clean));
+        const val = snap.val() || {};
+        let rows = Object.entries(val).filter(([id,d])=>d && id !== '_lease').map(([id,d])=>({id,data:()=>d}));
+        if(orderField) rows.sort((a,b)=>{ const av=a.data()?.[orderField]??0, bv=b.data()?.[orderField]??0; return orderDir==='desc' ? (bv-av) : (av-bv); });
+        if(maxItems!=null) rows=rows.slice(0,maxItems);
+        return {docs:rows};
+      },
+      async add(value){ const r=push(dbRef(database, clean)); await set(r,value); return {id:r.key}; },
+      onSnapshot(callback, error){
+        return onValue(dbRef(database, clean), snap=>{
+          const val=snap.val()||{};
+          let rows=Object.entries(val).filter(([id,d])=>d && id !== '_lease').map(([id,d])=>({id,data:()=>d}));
+          if(orderField) rows.sort((a,b)=>{ const av=a.data()?.[orderField]??0, bv=b.data()?.[orderField]??0; return orderDir==='desc' ? (bv-av) : (av-bv); });
+          if(maxItems!=null) rows=rows.slice(0,maxItems);
+          callback({docs:rows});
+        }, error);
+      }
+    };
+    return api;
+  }
+
+  window.layerBayFirebase = { doc:makeDoc, collection:makeCollection };
+  const savedId = localStorage.getItem('layerbay_player_id') || crypto.randomUUID();
+  localStorage.setItem('layerbay_player_id', savedId);
+  window.layerBayUser = {
+    async id(){ return savedId; },
+    async me(){ return {name: localStorage.getItem('layerbay_displayname') || ''}; },
+    async profiles(ids){
+      const result={};
+      for(const id of ids){
+        try{ const snap=await get(dbRef(database,'matches/'+(localStorage.getItem('layerbay_match')||'')+'/players/'+id)); result[id]={name:snap.val()?.name || 'Player'}; }catch(e){ result[id]={name:'Player'}; }
+      }
+      return result;
+    }
+  };
 </script>
 
 <script>
@@ -359,19 +442,9 @@ input[type=range]{width:100%;accent-color:var(--hot);}
    One match = two human players = one PRINTER + one BUYER,
    roles assigned at random when the match starts.
 
-   This build runs as a published Claude artifact and uses the
-   platform's real capabilities for multiplayer state:
-     - `db`   a shared, realtime document store for match state,
-              economy, listings and the activity feed
-     - `user` real per-organization player identity (no more
-              client-generated ids)
-   Purchases use `db`'s cooperative `acquire()` lease as a
-   single-writer guard around the contested listing document, so
-   two near-simultaneous buys can't both win the same item. It's
-   still not a full server-side transaction across multiple
-   documents (this platform's db has no cross-document
-   transactions) — see the notice in the lobby for what that
-   means in practice.
+   This build uses Firebase Realtime Database for shared match state,
+   economy, listings and the activity feed. Player identity is kept
+   locally in the browser so the same player can reconnect.
    ============================================================ */
 
 const SHAPES = [
@@ -412,7 +485,7 @@ const ICON = {
 };
 
 /* ---------------- module state ---------------- */
-let claudeDb = null, claudeUser = null;
+let lbDb = null, lbUser = null;
 let myId = null, myName = '';
 let matchCode = null, role = null, matchData = null;
 let printerState = null, buyerState = null, listings = [], feed = [];
@@ -597,48 +670,27 @@ function renderCenterScreen(html){
 
 async function boot(){
   renderCenterScreen(`<div class="waiting-spin"></div><p>Connecting to LayerBay…</p>`);
-
-  if(!window.claude || !window.claude.use){
-    renderCenterScreen(`
-      <h2 class="big">Can't reach the multiplayer backend</h2>
-      <p>LayerBay needs to run as a live, published Claude artifact — the app in this window doesn't have access to <code>window.claude</code> at all. If you downloaded this file and opened it directly, that won't work: open the artifact link on claude.ai instead.</p>
-    `);
-    return;
+  try{
+    lbDb = window.layerBayFirebase;
+    lbUser = window.layerBayUser;
+    myId = await lbUser.id();
+    const me = await lbUser.me();
+    myName = me.name || '';
+    const cached = lsGet('layerbay_match');
+    if(cached){
+      const resumed = await tryResume(cached);
+      if(resumed) return;
+    }
+    renderLobby();
+  }catch(e){
+    console.error('LayerBay startup failed', e);
+    renderCenterScreen(`<h2 class="big">Firebase connection failed</h2><p>Check your Firebase Realtime Database configuration and security rules, then reload LayerBay.</p>`);
   }
-
-  const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
-  claudeDb = db; claudeUser = user;
-
-  if(!claudeDb || !claudeUser){
-    renderCenterScreen(`
-      <h2 class="big">Multiplayer isn't available here</h2>
-      <p>This view wasn't granted database or identity access, so there's nowhere to store match state. Try reopening the artifact from claude.ai — if this keeps happening, database access may not be enabled for this workspace yet.</p>
-    `);
-    return;
-  }
-
-  myId = await claudeUser.id();
-  if(!myId){
-    renderCenterScreen(`
-      <h2 class="big">We can't identify you</h2>
-      <p>LayerBay needs a signed-in Claude.ai account in this organization to tell players apart. Make sure you're signed in, then reload this page.</p>
-    `);
-    return;
-  }
-  const me = await claudeUser.me();
-  myName = me.name || '';
-
-  const cached = lsGet('layerbay_match');
-  if(cached){
-    const resumed = await tryResume(cached);
-    if(resumed) return;
-  }
-  renderLobby();
 }
 
 async function tryResume(code){
   let snap;
-  try{ snap = await claudeDb.doc('matches/'+code).get(); }catch(e){ lsDel('layerbay_match'); return false; }
+  try{ snap = await lbDb.doc('matches/'+code).get(); }catch(e){ lsDel('layerbay_match'); return false; }
   if(!snap.exists){ lsDel('layerbay_match'); return false; }
   const data = snap.data();
   if(!data.players || !data.players[myId]){ lsDel('layerbay_match'); return false; }
@@ -713,13 +765,13 @@ async function onCreateClick(){
   let code, exists = true, tries = 0;
   while(exists && tries < 8){
     code = genCode();
-    try{ const s = await claudeDb.doc('matches/'+code).get(); exists = s.exists; }catch(e){ exists = true; }
+    try{ const s = await lbDb.doc('matches/'+code).get(); exists = s.exists; }catch(e){ exists = true; }
     tries++;
   }
   try{
-    await claudeDb.doc('matches/'+code).set({
+    await lbDb.doc('matches/'+code).set({
       code, status:'waiting', createdAt: now,
-      players: { [myId]: {joinedAt: now, lastSeen: now} },
+      players: { [myId]: {joinedAt: now, lastSeen: now, name: getDisplayName() || 'Player'} },
       roles: {}
     });
   }catch(e){ document.getElementById('lobbyErr').textContent = 'Could not create a match — try again.'; return; }
@@ -741,7 +793,7 @@ async function onJoinClick(){
 }
 
 async function joinMatch(code){
-  const ref = claudeDb.doc('matches/'+code);
+  const ref = lbDb.doc('matches/'+code);
   let lease = {acquired:false};
   try{ lease = await ref.acquire({holder: myId, ttlMs: 6000}); }catch(e){}
 
@@ -767,7 +819,7 @@ async function joinMatch(code){
   roles[otherId] = firstIsPrinter ? 'printer' : 'buyer';
   roles[myId] = firstIsPrinter ? 'buyer' : 'printer';
   const now = Date.now();
-  const newPlayers = Object.assign({}, data.players, { [myId]: {joinedAt: now, lastSeen: now} });
+  const newPlayers = Object.assign({}, data.players, { [myId]: {joinedAt: now, lastSeen: now, name: getDisplayName() || 'Player'} });
 
   try{
     await ref.set({ code, status:'ready', createdAt: data.createdAt, players: newPlayers, roles });
@@ -796,8 +848,8 @@ function renderWaitingScreen(){
   document.getElementById('cancelWaitBtn').addEventListener('click', async ()=>{
     if(waitUnsub) waitUnsub();
     try{
-      const s = await claudeDb.doc('matches/'+matchCode).get();
-      if(s.exists && s.data().status==='waiting') await claudeDb.doc('matches/'+matchCode).delete();
+      const s = await lbDb.doc('matches/'+matchCode).get();
+      if(s.exists && s.data().status==='waiting') await lbDb.doc('matches/'+matchCode).delete();
     }catch(e){}
     lsDel('layerbay_match');
     matchCode = null; matchData = null;
@@ -805,7 +857,7 @@ function renderWaitingScreen(){
   });
 
   if(waitUnsub) waitUnsub();
-  waitUnsub = claudeDb.doc('matches/'+matchCode).onSnapshot(async (snap)=>{
+  waitUnsub = lbDb.doc('matches/'+matchCode).onSnapshot(async (snap)=>{
     if(!snap.exists) return;
     const data = snap.data();
     if(data.status==='ready' && data.roles && data.roles[myId]){
@@ -820,8 +872,8 @@ function renderWaitingScreen(){
 
 /* ================= ENTER GAME / SUBSCRIPTIONS ================= */
 async function enterGame(){
-  const pRef = claudeDb.doc('matches/'+matchCode+'/econ/printer');
-  const bRef = claudeDb.doc('matches/'+matchCode+'/econ/buyer');
+  const pRef = lbDb.doc('matches/'+matchCode+'/econ/printer');
+  const bRef = lbDb.doc('matches/'+matchCode+'/econ/buyer');
   try{
     const pSnap = await pRef.get();
     if(!pSnap.exists) await pRef.set(defaultPrinterState());
@@ -854,17 +906,17 @@ async function enterGame(){
     if(!buyerState.purchases) buyerState.purchases = [];
   }
 
-  unsubListings = claudeDb.collection('matches/'+matchCode+'/listings').orderBy('listedAt','desc').onSnapshot(snap=>{
+  unsubListings = lbDb.collection('matches/'+matchCode+'/listings').orderBy('listedAt','desc').onSnapshot(snap=>{
     listings = snap.docs.map(d=>Object.assign({id:d.id}, d.data()));
     if(currentTab==='shop' || currentTab==='market') rerenderCurrentTab();
   }, ()=>{});
 
-  unsubFeed = claudeDb.collection('matches/'+matchCode+'/feed').orderBy('at','desc').limit(15).onSnapshot(snap=>{
+  unsubFeed = lbDb.collection('matches/'+matchCode+'/feed').orderBy('at','desc').limit(15).onSnapshot(snap=>{
     feed = snap.docs.map(d=>d.data());
     if(currentTab==='shop' || currentTab==='market') rerenderCurrentTab();
   }, ()=>{});
 
-  unsubMatch = claudeDb.doc('matches/'+matchCode).onSnapshot(snap=>{
+  unsubMatch = lbDb.doc('matches/'+matchCode).onSnapshot(snap=>{
     if(!snap.exists) return;
     matchData = snap.data();
     updateConnIndicator();
@@ -878,7 +930,7 @@ function startHeartbeat(){
   clearInterval(heartbeatTimer);
   heartbeatTimer = setInterval(()=>{
     if(!matchCode) return;
-    claudeDb.doc('matches/'+matchCode).update({ players: { [myId]: {lastSeen: Date.now()} } }).catch(()=>{});
+    lbDb.doc('matches/'+matchCode).update({ players: { [myId]: {lastSeen: Date.now()} } }).catch(()=>{});
   }, 10000);
 }
 
@@ -891,20 +943,15 @@ async function updateConnIndicator(){
   const lastSeen = (matchData.players[otherId]||{}).lastSeen || 0;
   const online = (Date.now() - lastSeen) < 20000;
   dot.classList.toggle('online', online);
-  try{
-    const profiles = await claudeUser.profiles([otherId]);
-    const nm = (profiles[otherId] && profiles[otherId].name) || 'Player';
-    label.textContent = nm + (online ? ' online' : ' away');
-  }catch(e){
-    label.textContent = online ? 'Player online' : 'Player away';
-  }
+  const nm = (matchData.players[otherId] && matchData.players[otherId].name) || 'Player';
+  label.textContent = nm + (online ? ' online' : ' away');
 }
 
 /* ---------------- leave match ---------------- */
 async function deleteCollectionAt(path){
   try{
-    const snap = await claudeDb.collection(path).get();
-    for(const d of snap.docs){ await claudeDb.doc(path+'/'+d.id).delete(); }
+    const snap = await lbDb.collection(path).get();
+    for(const d of snap.docs){ await lbDb.doc(path+'/'+d.id).delete(); }
   }catch(e){}
 }
 async function leaveMatch(){
@@ -916,9 +963,9 @@ async function leaveMatch(){
   if(matchCode){
     await deleteCollectionAt('matches/'+matchCode+'/listings');
     await deleteCollectionAt('matches/'+matchCode+'/feed');
-    try{ await claudeDb.doc('matches/'+matchCode+'/econ/printer').delete(); }catch(e){}
-    try{ await claudeDb.doc('matches/'+matchCode+'/econ/buyer').delete(); }catch(e){}
-    try{ await claudeDb.doc('matches/'+matchCode).delete(); }catch(e){}
+    try{ await lbDb.doc('matches/'+matchCode+'/econ/printer').delete(); }catch(e){}
+    try{ await lbDb.doc('matches/'+matchCode+'/econ/buyer').delete(); }catch(e){}
+    try{ await lbDb.doc('matches/'+matchCode).delete(); }catch(e){}
   }
   lsDel('layerbay_match');
   matchCode = null; role = null; matchData = null; printerState = null; buyerState = null; listings = []; feed = [];
@@ -1013,15 +1060,15 @@ function switchTab(tab){
 /* ---------------- shared save helpers ---------------- */
 async function savePrinterState(){
   if(!matchCode) return;
-  try{ await claudeDb.doc('matches/'+matchCode+'/econ/printer').set(printerState); }catch(e){ console.error(e); }
+  try{ await lbDb.doc('matches/'+matchCode+'/econ/printer').set(printerState); }catch(e){ console.error(e); }
 }
 async function saveBuyerState(){
   if(!matchCode) return;
-  try{ await claudeDb.doc('matches/'+matchCode+'/econ/buyer').set(buyerState); }catch(e){ console.error(e); }
+  try{ await lbDb.doc('matches/'+matchCode+'/econ/buyer').set(buyerState); }catch(e){ console.error(e); }
 }
 async function pushFeed(text){
   if(!matchCode) return;
-  try{ await claudeDb.collection('matches/'+matchCode+'/feed').add({text, at: Date.now()}); }catch(e){}
+  try{ await lbDb.collection('matches/'+matchCode+'/feed').add({text, at: Date.now()}); }catch(e){}
 }
 
 /* ================= PRINTER: PRINT TAB ================= */
@@ -1267,7 +1314,7 @@ async function listItem(itemId){
     price, listedAt: Date.now()
   };
   try{
-    await claudeDb.collection('matches/'+matchCode+'/listings').add(listing);
+    await lbDb.collection('matches/'+matchCode+'/listings').add(listing);
   }catch(e){ toast('Could not list item — try again.', 'bad'); return; }
 
   printerState.inventory.splice(idx,1);
@@ -1321,7 +1368,7 @@ function renderShopTab(container){
 async function cancelListing(listingId){
   const l = listings.find(x=>x.id===listingId);
   if(!l) return;
-  try{ await claudeDb.doc('matches/'+matchCode+'/listings/'+listingId).delete(); }
+  try{ await lbDb.doc('matches/'+matchCode+'/listings/'+listingId).delete(); }
   catch(e){ toast('Could not cancel — try again.', 'bad'); return; }
   printerState.inventory.unshift({id: l.itemId, shape:l.shape, color:l.color, size:l.size, name:l.name, createdAt:Date.now()});
   await savePrinterState();
@@ -1549,7 +1596,7 @@ async function buyListing(listingId){
   if(!local){ toast('That item was just sold or cancelled.', 'bad'); return; }
   if(buyerState.money < local.price){ toast('Not enough money.', 'bad'); return; }
 
-  const ref = claudeDb.doc('matches/'+matchCode+'/listings/'+listingId);
+  const ref = lbDb.doc('matches/'+matchCode+'/listings/'+listingId);
   let lease = {acquired:false};
   try{ lease = await ref.acquire({holder: myId, ttlMs: 4000}); }catch(e){}
   if(!lease.acquired){ toast('Someone else is buying that right now.', 'bad'); return; }
@@ -1578,7 +1625,7 @@ async function buyListing(listingId){
 }
 
 async function creditPrinter(amount){
-  const ref = claudeDb.doc('matches/'+matchCode+'/econ/printer');
+  const ref = lbDb.doc('matches/'+matchCode+'/econ/printer');
   let lease = {acquired:false};
   try{ lease = await ref.acquire({holder: myId, ttlMs: 4000}); }catch(e){}
   for(let attempt=0; attempt<2 && !lease.acquired; attempt++){
