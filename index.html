@@ -331,7 +331,7 @@ input[type=range]{width:100%;accent-color:var(--hot);}
 
 <div class="toast-stack" id="toastStack"></div>
 
- <script type="module">
+<script type="module">
   // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
   // TODO: Add SDKs for Firebase products that you want to use
@@ -350,88 +350,6 @@ input[type=range]{width:100%;accent-color:var(--hot);}
 
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
-  const database = getDatabase(app);
-
-  function deepMerge(a,b){
-    if(!a || typeof a !== "object" || Array.isArray(a)) return b;
-    const out = {...a};
-    for(const [k,v] of Object.entries(b || {})){
-      out[k] = (v && typeof v === "object" && !Array.isArray(v) && out[k] && typeof out[k] === "object" && !Array.isArray(out[k]))
-        ? deepMerge(out[k], v) : v;
-    }
-    return out;
-  }
-
-  function makeDoc(path){
-    const clean = path.replace(/^\/+|\/+$/g, '');
-    return {
-      async get(){ const snap = await get(dbRef(database, clean)); return { exists:snap.exists(), data:()=>snap.val() }; },
-      async set(value){ return set(dbRef(database, clean), value); },
-      async update(value){
-        const snap = await get(dbRef(database, clean));
-        return set(dbRef(database, clean), deepMerge(snap.exists()?snap.val():{}, value));
-      },
-      async delete(){ return remove(dbRef(database, clean)); },
-      onSnapshot(callback, error){
-        return onValue(dbRef(database, clean), snap=>callback({exists:snap.exists(), data:()=>snap.val()}), error);
-      },
-      async acquire({holder, ttlMs=5000}){
-        const leaseRef = dbRef(database, clean+'/_lease');
-        let acquired = false;
-        await runTransaction(leaseRef, current=>{
-          const now = Date.now();
-          if(!current || !current.holder || (now-current.at) > (current.ttlMs || 5000) || current.holder===holder){
-            acquired = true;
-            return {holder, at:now, ttlMs};
-          }
-          return;
-        });
-        return {acquired};
-      }
-    };
-  }
-
-  function makeCollection(path, orderField=null, orderDir="asc", maxItems=null){
-    const clean = path.replace(/^\/+|\/+$/g, '');
-    const api = {
-      orderBy(field, dir="asc"){ return makeCollection(clean, field, dir, maxItems); },
-      limit(n){ return makeCollection(clean, orderField, orderDir, n); },
-      async get(){
-        const snap = await get(dbRef(database, clean));
-        const val = snap.val() || {};
-        let rows = Object.entries(val).filter(([id,d])=>d && id !== '_lease').map(([id,d])=>({id,data:()=>d}));
-        if(orderField) rows.sort((a,b)=>{ const av=a.data()?.[orderField]??0, bv=b.data()?.[orderField]??0; return orderDir==='desc' ? (bv-av) : (av-bv); });
-        if(maxItems!=null) rows=rows.slice(0,maxItems);
-        return {docs:rows};
-      },
-      async add(value){ const r=push(dbRef(database, clean)); await set(r,value); return {id:r.key}; },
-      onSnapshot(callback, error){
-        return onValue(dbRef(database, clean), snap=>{
-          const val=snap.val()||{};
-          let rows=Object.entries(val).filter(([id,d])=>d && id !== '_lease').map(([id,d])=>({id,data:()=>d}));
-          if(orderField) rows.sort((a,b)=>{ const av=a.data()?.[orderField]??0, bv=b.data()?.[orderField]??0; return orderDir==='desc' ? (bv-av) : (av-bv); });
-          if(maxItems!=null) rows=rows.slice(0,maxItems);
-          callback({docs:rows});
-        }, error);
-      }
-    };
-    return api;
-  }
-
-  window.layerBayFirebase = { doc:makeDoc, collection:makeCollection };
-  const savedId = localStorage.getItem('layerbay_player_id') || crypto.randomUUID();
-  localStorage.setItem('layerbay_player_id', savedId);
-  window.layerBayUser = {
-    async id(){ return savedId; },
-    async me(){ return {name: localStorage.getItem('layerbay_displayname') || ''}; },
-    async profiles(ids){
-      const result={};
-      for(const id of ids){
-        try{ const snap=await get(dbRef(database,'matches/'+(localStorage.getItem('layerbay_match')||'')+'/players/'+id)); result[id]={name:snap.val()?.name || 'Player'}; }catch(e){ result[id]={name:'Player'}; }
-      }
-      return result;
-    }
-  };
 </script>
 
 <script>
